@@ -1,7 +1,7 @@
 use maud::{html, Markup};
 
 use crate::{
-    state::{GameState, Phase},
+    state::{Error, GameState, Phase},
     word::Word,
 };
 
@@ -16,7 +16,10 @@ pub fn page(title: &str, content: Markup) -> Markup {
                 script src="https://unpkg.com/htmx.org@1.9.12" {}
                 script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" {}
                 script src="assets/main.js" {}
-                link rel="stylesheet" href="assets/style.css" {}
+                link rel="stylesheet" href="assets/style.css";
+                link rel="preconnect" href="https://fonts.googleapis.com";
+                link rel="preconnect" href="https://fonts.gstatic.com" crossorigin;
+                link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400..700&display=swap" rel="stylesheet";
             }
             body x-data x-on:keydown="submitKey($event, $refs.key, $refs.form)" {
                 (content)
@@ -28,7 +31,7 @@ pub fn page(title: &str, content: Markup) -> Markup {
 pub fn game_board(state: &GameState) -> Markup {
     html! {
         div id="game" {
-            table cellspacing="5" {
+            table {
                 @for guess in &state.guesses {
                     (guess_row(guess.clone(), state.answer, true))
                 }
@@ -39,15 +42,19 @@ pub fn game_board(state: &GameState) -> Markup {
                     }
                 }
             }
-            @if state.phase == Phase::Won {
-                p { "You won!" }
+            @match state.error {
+                Error::None => {},
+                Error::InvalidGuess => p.message.error { "Invalid guess" },
             }
-            @if state.phase == Phase::Lost {
-                p { "You lost!" }
-                p { "The answer was " (state.answer) }
-            }
-            @if state.phase == Phase::Playing {
-                p { "Enter a guess" }
+            @match state.phase {
+                Phase::Won => {
+                    p.message { "You won!" }
+                },
+                Phase::Lost => {
+                    p.message { "You lost!" }
+                    p.message.small { "The answer was " span.word { (state.answer) } }
+                },
+                _ => {},
             }
             @if state.phase != Phase::Playing {
                 button hx-post="/api/reset" hx-target="#game" hx-swap="outerHTML" { "Play again" }

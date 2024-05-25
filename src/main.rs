@@ -1,3 +1,4 @@
+mod dictionary;
 mod guess;
 mod state;
 mod templates;
@@ -34,7 +35,7 @@ async fn page(State(state): State<SharedState>) -> Markup {
 
 async fn reset(State(state): State<SharedState>) -> Markup {
     let mut state = state.write().unwrap();
-    *state = GameState::new("hello");
+    *state = GameState::new_random();
     templates::game_board(&state)
 }
 
@@ -57,7 +58,7 @@ async fn input(State(state): State<SharedState>, Form(param): Form<InputParams>)
 
 #[tokio::main]
 async fn main() {
-    let shared_state: SharedState = Arc::new(RwLock::new(GameState::new("hello")));
+    let shared_state: SharedState = Arc::new(RwLock::new(GameState::new_random()));
 
     let app = Router::new()
         .route("/", get(page))

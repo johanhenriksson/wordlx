@@ -1,4 +1,11 @@
+use crate::dictionary::Dictionary;
 use crate::word::Word;
+use lazy_static::lazy_static;
+
+lazy_static! {
+    static ref WORDS: Dictionary = Dictionary::game_words();
+    static ref GUESSES: Dictionary = Dictionary::valid_guesses();
+}
 
 #[derive(PartialEq, Debug, Default)]
 pub enum Phase {
@@ -15,12 +22,20 @@ pub enum Input {
     Backspace,
 }
 
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum Error {
+    #[default]
+    None,
+    InvalidGuess,
+}
+
 #[derive(Debug, Default)]
 pub struct GameState {
     pub phase: Phase,
     pub answer: Word,
     pub guess: Word,
     pub guesses: Vec<Word>,
+    pub error: Error,
 }
 
 impl GameState {
@@ -31,13 +46,25 @@ impl GameState {
         }
     }
 
+    pub fn new_random() -> Self {
+        let answer = WORDS.random();
+        println!("New game: {}", answer);
+        Self::new(&answer.to_string())
+    }
+
     pub fn input(&mut self, input: Input) {
         if self.phase != Phase::Playing {
             return;
         }
         match input {
-            Input::Character(c) => self.guess.put(c),
-            Input::Backspace => self.guess.erase(),
+            Input::Character(c) => {
+                self.guess.put(c);
+                self.error = Error::None;
+            }
+            Input::Backspace => {
+                self.guess.erase();
+                self.error = Error::None;
+            }
             Input::Enter => self.submit(),
         }
     }
@@ -55,6 +82,12 @@ impl GameState {
         }
 
         let guess = self.guess.clone();
+        if !(WORDS.contains(&guess.to_string()) || GUESSES.contains(&guess.to_string())) {
+            self.error = Error::InvalidGuess;
+            return;
+        }
+        self.error = Error::None;
+
         self.guess = Word::empty();
         self.guesses.push(guess.clone());
 

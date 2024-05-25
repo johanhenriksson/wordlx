@@ -8,6 +8,7 @@ axum = "0.7.5"
 axum-macros = "0.4.1"
 lazy_static = "1.4.0"
 maud = { version = "0.26.0", features = ["axum"] }
+rand = "0.8.5"
 serde = { version = "1.0.202", features = ["derive"] }
 tokio = { version = "1.37.0", features = ["full"] }
 tower = "0.4.13"

@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, hash::Hash, hash::Hasher};
 
 #[derive(Copy, Clone, Debug)]
 pub struct Word {
@@ -76,6 +76,8 @@ impl PartialEq for Word {
     }
 }
 
+impl Eq for Word {}
+
 impl IntoIterator for Word {
     type Item = char;
     type IntoIter = std::array::IntoIter<char, 5>;
@@ -91,5 +93,11 @@ impl Display for Word {
             write!(f, "{}", c)?;
         }
         Ok(())
+    }
+}
+
+impl Hash for Word {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.chars.hash(state);
     }
 }
