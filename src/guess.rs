@@ -1,56 +1,5 @@
+use crate::charset::Charset;
 use crate::word::Word;
-
-fn char_mask(c: char) -> u32 {
-    1 << (c as u32 - b'a' as u32)
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Charset(u32);
-
-impl Charset {
-    pub fn all() -> Self {
-        Charset(0b00000011111111111111111111111111)
-    }
-
-    pub fn none() -> Self {
-        Charset(0)
-    }
-
-    #[allow(dead_code)]
-    pub fn from_str(chars: &str) -> Self {
-        let mut set = Charset::none();
-        for c in chars.chars() {
-            set.include(c);
-        }
-        set
-    }
-
-    pub fn exclude(&mut self, c: char) -> Self {
-        self.0 ^= char_mask(c);
-        self.clone()
-    }
-
-    pub fn include(&mut self, c: char) -> Self {
-        self.0 |= char_mask(c);
-        self.clone()
-    }
-
-    pub fn inverse(&self) -> Self {
-        return Charset(self.0 ^ Self::all().0);
-    }
-
-    pub fn contains(&self, other: Charset) -> bool {
-        self.0 & other.0 == other.0
-    }
-
-    pub fn intersects(&self, other: Charset) -> bool {
-        self.0 & other.0 != 0
-    }
-
-    pub fn includes(&self, c: char) -> bool {
-        self.0 & char_mask(c) != 0
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct WordSpace([Charset; 5]);
@@ -75,36 +24,70 @@ impl WordSpace {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct WordFilter {
+    answer: Word,
+
+    pub accepted: Charset,
+    pub required: Charset,
+    pub space: WordSpace,
+    pub correct: Word,
+}
+
+impl WordFilter {
+    pub fn new(answer: Word) -> Self {
+        Self {
+            answer: answer.clone(),
+            accepted: Charset::all(),
+            required: Charset::none(),
+            space: WordSpace::new(),
+            correct: Word::empty(),
+        }
+    }
+
+    pub fn apply(&mut self, guess: Word) {
+        // update mask
+        for (i, c) in guess.into_iter().enumerate() {
+            if c == self.answer.at(i) {
+                // correct character in correct position
+                self.correct.set(i, c);
+                self.required.include(c);
+                self.space.only(i, c);
+            } else if self.answer.contains(c) {
+                // correct character in wrong position
+                self.required.include(c);
+                self.space.exclude(i, c);
+            } else {
+                // incorrect character
+                self.accepted.exclude(c);
+                for i in 0..5 {
+                    self.space.exclude(i, c);
+                }
+            }
+        }
+    }
+
+    pub fn matches(&self, word: &Word) -> bool {
+        let wm = word.charset();
+
+        // ensure we dont have any rejected characters
+        if !self.accepted.contains(wm) {
+            return false;
+        }
+
+        // ensure we have all required characters
+        if !wm.contains(self.required) {
+            return false;
+        }
+
+        // ensure the word has no characters in known wrong positions
+        self.space.matches(word)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
-
-    #[test]
-    fn test_include_exclude() {
-        let mut set = Charset::none();
-        assert_eq!(set.includes('a'), false);
-        set.include('a');
-        assert_eq!(set.includes('a'), true);
-        set.exclude('a');
-        assert_eq!(set.includes('a'), false);
-    }
-
-    #[test]
-    fn test_contains() {
-        let set = Charset::from_str("abc");
-        assert_eq!(set.contains(Charset::from_str("ab")), true);
-        assert_eq!(set.contains(Charset::from_str("cd")), false);
-    }
-
-    #[test]
-    fn test_inverse() {
-        let set = Charset::from_str("abc");
-        let inverse = set.inverse();
-        assert_eq!(inverse.includes('a'), false);
-        assert_eq!(inverse.includes('b'), false);
-        assert_eq!(inverse.includes('c'), false);
-        assert_eq!(inverse.includes('d'), true);
-    }
 
     #[test]
     fn test_wordspace() {
@@ -123,5 +106,16 @@ mod test {
         assert_eq!(space.0[0].includes('b'), false);
         assert_eq!(space.matches(&Word::new("abcde")), true);
         assert_eq!(space.matches(&Word::new("bbcde")), false);
+    }
+
+    #[test]
+    fn test_filter() {
+        let mut filter = WordFilter::new(Word::new("theta"));
+        filter.apply(Word::new("beast"));
+        filter.apply(Word::new("tears"));
+        filter.apply(Word::new("tamed"));
+        assert_eq!(filter.matches(&Word::new("theta")), true);
+        assert_eq!(filter.matches(&Word::new("steal")), false);
+        assert_eq!(filter.matches(&Word::new("steak")), false);
     }
 }

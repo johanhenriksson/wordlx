@@ -1,3 +1,4 @@
+mod charset;
 mod dictionary;
 mod guess;
 mod state;
@@ -9,18 +10,12 @@ use axum::{
     routing::{get, post},
     Form, Router,
 };
-use axum_macros::debug_handler;
 use maud::{html, Markup};
 use serde::Deserialize;
 use state::{GameState, Input};
 use std::sync::{Arc, RwLock};
 use tokio::net::TcpListener;
 use tower_http::services::ServeDir;
-
-use crate::{
-    dictionary::WORDS,
-    guess::{Charset, WordSpace},
-};
 
 type SharedState = Arc<RwLock<GameState>>;
 
@@ -29,16 +24,18 @@ async fn page(State(state): State<SharedState>) -> Markup {
     return templates::page(
         "Wordle",
         html! {
-            form x-ref="form" method="post" hx-post="/api/input" hx-target="#game" hx-swap="outerHTML" {
-                input type="hidden" name="key" x-ref="key";
+            form id="form" method="post" hx-post="/api/input" hx-target="#game" hx-swap="outerHTML" {
+                input type="hidden" name="key" id="key";
             }
             h1 { "Wordlx"}
             (templates::game_board(&state))
 
             div.panel {
-                button hx-get="/stats" hx-target="#cheat"  { "Cheat" }
+                button hx-get="/cheat" hx-target="#cheat"  { "Cheat" }
             }
             div #cheat {}
+
+            script src="assets/wordle.js" {}
         },
     );
 }
@@ -53,7 +50,6 @@ async fn reset(State(state): State<SharedState>) -> Markup {
 struct InputParams {
     key: String,
 }
-#[debug_handler]
 async fn input(State(state): State<SharedState>, Form(param): Form<InputParams>) -> Markup {
     let mut state = state.write().unwrap();
     if param.key == "enter" {
@@ -69,67 +65,25 @@ async fn input(State(state): State<SharedState>, Form(param): Form<InputParams>)
 async fn cheat(State(state): State<SharedState>) -> Markup {
     let state = state.read().unwrap();
 
-    let mut mask = Charset::all();
-    let mut required = Charset::none();
-    let mut space = WordSpace::new();
-    let mut correct = vec![' ', ' ', ' ', ' ', ' '];
-    let mut exists = vec![];
-
-    for guess in &state.guesses {
-        // update mask
-        for (i, c) in guess.into_iter().enumerate() {
-            if c == state.answer.at(i) {
-                // correct character in correct position
-                exists.push(c);
-                correct[i] = c;
-                required.include(c);
-                space.only(i, c);
-            } else if state.answer.contains(c) {
-                // correct character in wrong position
-                exists.push(c);
-                required.include(c);
-                space.exclude(i, c);
-            } else {
-                // incorrect character
-                mask.exclude(c);
-                for i in 0..5 {
-                    space.exclude(i, c);
-                }
-            }
-        }
+    if state.phase != state::Phase::Playing {
+        return html! {};
     }
 
-    let choices = WORDS
+    let mut filter = guess::WordFilter::new(state.answer);
+    for guess in &state.guesses {
+        filter.apply(*guess);
+    }
+
+    let choices = dictionary::WORDS
         .iter()
-        .filter(|w| {
-            let wm = w.charset();
-
-            // ensure we dont have any rejected characters
-            if !mask.contains(wm) {
-                return false;
-            }
-
-            // ensure we have all required characters
-            if required.intersects(wm.inverse()) {
-                return false;
-            }
-
-            // ensure the word has no characters in known wrong positions
-            space.matches(w)
-        })
+        .filter(|w| filter.matches(w))
         .collect::<Vec<_>>();
 
     html! {
         h2 { (choices.len()) " choices" }
         (templates::guess_table(html! {
             @for word in choices {
-                tr .guess {
-                    @for (i,c) in word.into_iter().enumerate() {
-                        @let exists = exists.contains(&c);
-                        @let correct = c == correct[i];
-                        (templates::guess_cell(c, false, exists, correct))
-                    }
-                }
+                (templates::guess_row(word.clone(), filter.correct, filter.required, false))
             }
         }))
     }
@@ -141,7 +95,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/", get(page))
-        .route("/stats", get(cheat))
+        .route("/cheat", get(cheat))
         .route("/api/input", post(input))
         .route("/api/reset", post(reset))
         .nest_service("/assets", ServeDir::new("assets"))

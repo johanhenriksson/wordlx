@@ -1,6 +1,6 @@
 use std::{fmt::Display, hash::Hash, hash::Hasher};
 
-use crate::guess::Charset;
+use crate::charset::Charset;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Word {
@@ -39,6 +39,14 @@ impl Word {
 
     pub fn valid(&self) -> bool {
         self.index == 5
+    }
+
+    pub fn set(&mut self, i: usize, c: char) {
+        if i >= 5 {
+            return;
+        }
+        self.chars[i] = c;
+        self.index = i + 1;
     }
 
     pub fn put(&mut self, c: char) {

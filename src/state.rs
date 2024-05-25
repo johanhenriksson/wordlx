@@ -48,7 +48,6 @@ impl GameState {
 
     pub fn new_random() -> Self {
         let answer = WORDS.random();
-        println!("New game: {}", answer);
         Self::new(&answer.to_string())
     }
 
