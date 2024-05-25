@@ -1,5 +1,7 @@
 use std::{fmt::Display, hash::Hash, hash::Hasher};
 
+use crate::guess::Charset;
+
 #[derive(Copy, Clone, Debug)]
 pub struct Word {
     chars: [char; 5],
@@ -61,6 +63,14 @@ impl Word {
 
     pub fn at(&self, i: usize) -> char {
         self.chars[i]
+    }
+
+    pub fn charset(&self) -> Charset {
+        let mut set = Charset::none();
+        for c in &self.chars {
+            set.include(*c);
+        }
+        set
     }
 }
 

@@ -1,15 +1,8 @@
-use crate::dictionary::Dictionary;
+use crate::dictionary::{GUESSES, WORDS};
 use crate::word::Word;
-use lazy_static::lazy_static;
 
-lazy_static! {
-    static ref WORDS: Dictionary = Dictionary::game_words();
-    static ref GUESSES: Dictionary = Dictionary::valid_guesses();
-}
-
-#[derive(PartialEq, Debug, Default)]
+#[derive(PartialEq, Debug)]
 pub enum Phase {
-    #[default]
     Playing,
     Won,
     Lost,
@@ -22,14 +15,13 @@ pub enum Input {
     Backspace,
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Error {
-    #[default]
     None,
     InvalidGuess,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct GameState {
     pub phase: Phase,
     pub answer: Word,
@@ -40,9 +32,17 @@ pub struct GameState {
 
 impl GameState {
     pub fn new(answer: &str) -> Self {
+        if answer.len() != 5 {
+            panic!("Answer must be 5 characters long");
+        }
+
+        let answer = Word::new(answer);
         Self {
-            answer: Word::new(answer),
-            ..Default::default()
+            answer,
+            phase: Phase::Playing,
+            error: Error::None,
+            guess: Word::empty(),
+            guesses: Vec::new(),
         }
     }
 
@@ -86,8 +86,8 @@ impl GameState {
             self.error = Error::InvalidGuess;
             return;
         }
-        self.error = Error::None;
 
+        self.error = Error::None;
         self.guess = Word::empty();
         self.guesses.push(guess.clone());
 

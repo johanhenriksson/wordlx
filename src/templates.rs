@@ -31,51 +31,61 @@ pub fn page(title: &str, content: Markup) -> Markup {
 pub fn game_board(state: &GameState) -> Markup {
     html! {
         div id="game" {
-            table {
+            (guess_table(html! {
                 @for guess in &state.guesses {
                     (guess_row(guess.clone(), state.answer, true))
                 }
                 @if !state.full() {
                     (guess_row(state.guess, Word::invalid(), false))
                     @for _ in 0..5 - state.guesses.len() {
-                        (guess_row(Word::empty(),Word::invalid(), false))
+                        (guess_row(Word::empty(), Word::invalid(), false))
                     }
                 }
-            }
-            @match state.error {
-                Error::None => {},
-                Error::InvalidGuess => p.message.error { "Invalid guess" },
-            }
-            @match state.phase {
-                Phase::Won => {
-                    p.message { "You won!" }
-                },
-                Phase::Lost => {
-                    p.message { "You lost!" }
-                    p.message.small { "The answer was " span.word { (state.answer) } }
-                },
-                _ => {},
-            }
-            @if state.phase != Phase::Playing {
-                button hx-post="/api/reset" hx-target="#game" hx-swap="outerHTML" { "Play again" }
+            }))
+            div.panel {
+                @match state.error {
+                    Error::None => {},
+                    Error::InvalidGuess => p.message.error { "Invalid guess" },
+                }
+                @match state.phase {
+                    Phase::Won => {
+                        p.message { "You won!" }
+                    },
+                    Phase::Lost => {
+                        p.message { "You lost!" }
+                        p.message.small { "The answer was " span.word { (state.answer) } }
+                    },
+                    _ => {},
+                }
+                @if state.phase != Phase::Playing {
+                    button hx-post="/api/reset" hx-target="#game" hx-swap="outerHTML" { "Play again" }
+                }
             }
         }
     }
 }
 
-fn guess_row(guess: Word, answer: Word, fixed: bool) -> Markup {
+pub fn guess_table(content: Markup) -> Markup {
+    html! {
+        table.game {
+            (content)
+        }
+    }
+}
+
+pub fn guess_row(guess: Word, answer: Word, fixed: bool) -> Markup {
     html! {
         tr .guess {
             @for (i,c) in guess.into_iter().enumerate() {
-                (guess_cell(i, c, answer, fixed))
+                @let exists = answer.contains(c);
+                @let correct = c == answer.at(i);
+                (guess_cell(c, fixed, exists, correct))
             }
         }
     }
 }
 
-fn guess_cell(index: usize, char: char, answer: Word, fixed: bool) -> Markup {
-    let exists = answer.contains(char);
-    let correct = char == answer.at(index);
+pub fn guess_cell(char: char, fixed: bool, exists: bool, correct: bool) -> Markup {
     html! {
         td .fixed[fixed] .exists[exists] .correct[correct] valign="middle" {
             (char)

@@ -11,7 +11,6 @@
 body {
     color: #d7dadc;
     background-color: #121213;
-    text-align: center;
 
     display: flex;
     flex-direction: column;
@@ -28,7 +27,7 @@ button {
     cursor: pointer;
 }
 
-#game table {
+table.game {
     border-spacing: 8px;
 }
 
@@ -72,4 +71,9 @@ p.error {
 
 .word {
     text-transform: uppercase;
+}
+
+.panel {
+    text-align: center;
+    margin: 16px 0;
 }
