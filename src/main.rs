@@ -14,6 +14,7 @@ use maud::{html, Markup};
 use serde::Deserialize;
 use state::{GameState, Input};
 use std::sync::{Arc, RwLock};
+use std::time::Instant;
 use tokio::net::TcpListener;
 use tower_http::services::ServeDir;
 
@@ -74,34 +75,35 @@ async fn cheat(State(state): State<SharedState>) -> Markup {
         filter.apply(*guess);
     }
 
+    let start_match = Instant::now();
     let choices = dictionary::WORDS
         .iter()
         .filter(|w| filter.matches(**w))
         .collect::<Vec<_>>();
+    println!("match took {:?}", start_match.elapsed());
 
     // find the choice which minimizes the number of remaining possibilities
-    let best = choices
+    let start_score = Instant::now();
+    let mut scored = choices
         .iter()
         .map(|choice| {
             let mut filter = filter.clone();
-            filter.apply(**choice);
-            let count = choices
-                .iter()
-                .filter(|w| *w != choice && filter.matches(***w))
-                .count();
+            filter.reject(**choice);
+            let count = choices.iter().filter(|w| filter.matches(***w)).count();
             return (**choice, count);
         })
-        .min_by(|(_, a), (_, b)| a.cmp(b))
-        .unwrap();
+        .collect::<Vec<_>>();
+
+    println!("score took {:?}", start_score.elapsed());
+    println!("cheat took {:?}", start_match.elapsed());
+
+    scored.sort_by(|a, b| a.1.cmp(&b.1));
 
     html! {
-        h2 { "Optimal guess" }
-        (templates::guess_table(html! {
-            (templates::guess_row(best.0, filter.correct, filter.required, false))
-        }))
         h2 { (choices.len()) " choices" }
         (templates::guess_table(html! {
-            @for word in choices {
+            @for (word, score) in scored.iter() {
+                tr { td { (score) } }
                 (templates::guess_row(word.clone(), filter.correct, filter.required, false))
             }
         }))

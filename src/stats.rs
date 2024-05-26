@@ -68,6 +68,15 @@ impl WordFilter {
         }
     }
 
+    // Rejects all characters in a word, unless they are already required
+    pub fn reject(&mut self, word: Word) {
+        for c in &word {
+            if !self.required.includes(c) {
+                self.rejected.include(c);
+            }
+        }
+    }
+
     pub fn matches(&self, word: Word) -> bool {
         let wm = word.charset();
 
