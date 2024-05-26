@@ -28,8 +28,8 @@ impl Dictionary {
         Self(words)
     }
 
-    pub fn contains(&self, word: &str) -> bool {
-        self.0.contains(&Word::new(word))
+    pub fn contains(&self, word: Word) -> bool {
+        self.0.contains(&word)
     }
 
     pub fn iter(&self) -> std::collections::hash_set::Iter<Word> {

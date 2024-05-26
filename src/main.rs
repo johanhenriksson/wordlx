@@ -1,7 +1,7 @@
 mod charset;
 mod dictionary;
-mod guess;
 mod state;
+mod stats;
 mod templates;
 mod word;
 
@@ -69,17 +69,36 @@ async fn cheat(State(state): State<SharedState>) -> Markup {
         return html! {};
     }
 
-    let mut filter = guess::WordFilter::new(state.answer);
+    let mut filter = stats::WordFilter::new(state.answer);
     for guess in &state.guesses {
         filter.apply(*guess);
     }
 
     let choices = dictionary::WORDS
         .iter()
-        .filter(|w| filter.matches(w))
+        .filter(|w| filter.matches(**w))
         .collect::<Vec<_>>();
 
+    // find the choice which minimizes the number of remaining possibilities
+    let best = choices
+        .iter()
+        .map(|choice| {
+            let mut filter = filter.clone();
+            filter.apply(**choice);
+            let count = choices
+                .iter()
+                .filter(|w| *w != choice && filter.matches(***w))
+                .count();
+            return (**choice, count);
+        })
+        .min_by(|(_, a), (_, b)| a.cmp(b))
+        .unwrap();
+
     html! {
+        h2 { "Optimal guess" }
+        (templates::guess_table(html! {
+            (templates::guess_row(best.0, filter.correct, filter.required, false))
+        }))
         h2 { (choices.len()) " choices" }
         (templates::guess_table(html! {
             @for word in choices {

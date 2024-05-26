@@ -21,7 +21,9 @@ pub fn page(title: &str, content: Markup) -> Markup {
                 link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400..700&display=swap" rel="stylesheet";
             }
             body {
-                (content)
+                div.content {
+                    (content)
+                }
             }
         }
     }
@@ -36,9 +38,9 @@ pub fn game_board(state: &GameState) -> Markup {
                     (guess_row(guess.clone(), state.answer, required, true))
                 }
                 @if !state.full() {
-                    (guess_row(state.guess, Word::invalid(), Charset::none(), false))
+                    (guess_row(state.guess.clone().into(), Word::empty(), Charset::none(), false))
                     @for _ in 0..5 - state.guesses.len() {
-                        (guess_row(Word::empty(), Word::invalid(), Charset::none(), false))
+                        (guess_row(Word::empty(), Word::empty(), Charset::none(), false))
                     }
                 }
             }))
@@ -78,7 +80,7 @@ pub fn guess_row(guess: Word, correct: Word, required: Charset, fixed: bool) -> 
         tr .guess {
             @for (i,c) in guess.into_iter().enumerate() {
                 @let exists = required.includes(c);
-                @let correct = c == correct.at(i);
+                @let correct = c == correct.at(i) && c != ' ';
                 (guess_cell(c, fixed, exists, correct))
             }
         }
