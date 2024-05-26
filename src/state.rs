@@ -1,27 +1,29 @@
+use serde::{Deserialize, Serialize};
+
 use crate::dictionary::{GUESSES, WORDS};
 use crate::word::Word;
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum Phase {
     Playing,
     Won,
     Lost,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Serialize, Deserialize)]
 pub enum Input {
     Character(char),
     Enter,
     Backspace,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Error {
     None,
     InvalidGuess,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameState {
     pub phase: Phase,
     pub answer: Word,
@@ -91,7 +93,13 @@ impl GameState {
     }
 }
 
-#[derive(Debug, Clone)]
+impl Default for GameState {
+    fn default() -> Self {
+        Self::new_random()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Guess {
     chars: Vec<char>,
 }

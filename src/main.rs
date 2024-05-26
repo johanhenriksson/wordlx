@@ -6,22 +6,22 @@ mod templates;
 mod word;
 
 use axum::{
-    extract::State,
     routing::{get, post},
     Form, Router,
 };
 use maud::{html, Markup};
 use serde::Deserialize;
 use state::{GameState, Input};
-use std::sync::{Arc, RwLock};
 use std::time::Instant;
 use tokio::net::TcpListener;
 use tower_http::services::ServeDir;
+use tower_sessions::{cookie::time::Duration, Expiry, MemoryStore, Session, SessionManagerLayer};
 
-type SharedState = Arc<RwLock<GameState>>;
+const STATE_KEY: &str = "game";
 
-async fn page(State(state): State<SharedState>) -> Markup {
-    let state = state.read().unwrap();
+async fn page(session: Session) -> Markup {
+    let state = session.get(STATE_KEY).await.unwrap().unwrap_or_default();
+
     return templates::page(
         "Wordle",
         html! {
@@ -41,9 +41,9 @@ async fn page(State(state): State<SharedState>) -> Markup {
     );
 }
 
-async fn reset(State(state): State<SharedState>) -> Markup {
-    let mut state = state.write().unwrap();
-    *state = GameState::new_random();
+async fn reset(session: Session) -> Markup {
+    let state = GameState::new_random();
+    session.insert(STATE_KEY, state.clone()).await.unwrap();
     templates::game_board(&state)
 }
 
@@ -51,8 +51,8 @@ async fn reset(State(state): State<SharedState>) -> Markup {
 struct InputParams {
     key: String,
 }
-async fn input(State(state): State<SharedState>, Form(param): Form<InputParams>) -> Markup {
-    let mut state = state.write().unwrap();
+async fn input(session: Session, Form(param): Form<InputParams>) -> Markup {
+    let mut state: GameState = session.get(STATE_KEY).await.unwrap().unwrap_or_default();
     if param.key == "enter" {
         state.input(Input::Enter);
     } else if param.key == "backspace" {
@@ -60,11 +60,12 @@ async fn input(State(state): State<SharedState>, Form(param): Form<InputParams>)
     } else {
         state.input(Input::Character(param.key.chars().next().unwrap()));
     }
+    session.insert(STATE_KEY, state.clone()).await.unwrap();
     templates::game_board(&state)
 }
 
-async fn cheat(State(state): State<SharedState>) -> Markup {
-    let state = state.read().unwrap();
+async fn cheat(session: Session) -> Markup {
+    let state: GameState = session.get(STATE_KEY).await.unwrap().unwrap_or_default();
 
     if state.phase != state::Phase::Playing {
         return html! {};
@@ -112,7 +113,10 @@ async fn cheat(State(state): State<SharedState>) -> Markup {
 
 #[tokio::main]
 async fn main() {
-    let shared_state: SharedState = Arc::new(RwLock::new(GameState::new_random()));
+    let session_store = MemoryStore::default();
+    let session_layer = SessionManagerLayer::new(session_store)
+        .with_secure(false)
+        .with_expiry(Expiry::OnInactivity(Duration::seconds(3600)));
 
     let app = Router::new()
         .route("/", get(page))
@@ -120,7 +124,7 @@ async fn main() {
         .route("/api/input", post(input))
         .route("/api/reset", post(reset))
         .nest_service("/assets", ServeDir::new("assets"))
-        .with_state(shared_state);
+        .layer(session_layer);
 
     let port = 8080;
     let addr = format!("0.0.0.0:{}", port);

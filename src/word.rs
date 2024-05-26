@@ -1,5 +1,7 @@
 use std::{fmt::Display, hash::Hash, hash::Hasher};
 
+use serde::{Deserialize, Serialize};
+
 use crate::charset::Charset;
 
 const MASK: u32 = 0b11111;
@@ -19,7 +21,7 @@ fn char_from_bits(bits: u32) -> char {
     (b'a' + bits as u8) as char
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct Word(u32);
 
 impl Word {

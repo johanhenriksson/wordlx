@@ -13,3 +13,4 @@ serde = { version = "1.0.202", features = ["derive"] }
 tokio = { version = "1.37.0", features = ["full"] }
 tower = "0.4.13"
 tower-http = { version = "0.5.2", features = ["fs"] }
+tower-sessions = "0.12.2"
